@@ -1,4 +1,5 @@
 import bookingModel from "../models/bookingModel.js";
+import amqp from 'amqplib';
 
 export const getBookings = async (req,res) => {
     try{
@@ -42,7 +43,22 @@ export const createBooking = async (req,res) =>{
         });
 
         await newCreatedBooking.save();
-        res.status(201).json({message: "Booking created successfully", booking: newCreatedBooking});
+
+        const connection = await amqp.connect('amqp://localhost');
+        const channel = await connection.createChannel();
+
+        const queueName = 'booking_events';
+        await channel.assertQueue(queueName, {durable: true});
+
+        const eventMessage = {
+            eventType: 'BOOKING_CREATED',
+            data: newCreatedBooking
+        };
+
+        channel.sendToQueue(queueName, Buffer.from(JSON.stringify(eventMessage)));
+        setTimeout(() => connection.close(), 500);
+
+        res.status(201).json({message: "Booking received and is processing", booking: newCreatedBooking});
 
     } catch (error){
         res.status(500).json({message: "Failed to create booking", error: error.message});

@@ -94,6 +94,21 @@ async function listenForEvents(){
 
                     console.log('Fare Estimation:', totalFare);
 
+                    const fareEvent = {
+                        eventType: 'FARE_CALCULATED',
+                        data: {
+                            bookingId: event.data._id,
+                            totalFare: totalFare,
+                            startLocation: event.data.startingLocation,
+                            endLocation: event.data.endingLocation,
+                        }
+                    };
+
+                    const paymentQueue = "payment_events";
+                    await channel.assertQueue(paymentQueue, {durable: true});
+                    channel.sendToQueue(paymentQueue, Buffer.from(JSON.stringify(fareEvent)));
+                    console.log('Published fare to payment service.');
+
 
                 }
                 channel.ack(msg);

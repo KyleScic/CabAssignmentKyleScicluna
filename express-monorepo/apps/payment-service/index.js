@@ -2,24 +2,34 @@ import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import amqp from 'amqplib';
+import Payment from '../payment-service/models/payment.models.js';
 
 async function listenForEvents(){
     try{
         const connection = await amqp.connect('amqp://localhost');
         const channel = await connection.createChannel();
 
-        const queueName = "booking_events";
+        const queueName = "payment_events";
         await channel.assertQueue(queueName, {durable: true});
 
         console.log(`Waiting for messages in ${queueName}...`);
 
-        channel.consume(queueName, (msg) =>{
-            if(msg !== null){
+        channel.consume(queueName, async (msg) => {
+            if (msg !== null) {
                 const event = JSON.parse(msg.content.toString());
 
-                if(event.eventType === 'BOOKING_CREATED'){
-                    console.log('Received new booking! processing payment for', event.data);
-                    // -<
+                if (event.eventType === 'FARE_CALCULATED') {
+                    console.log(`Received fare for booking ${event.data.bookingId}. Saving as PAID.`);
+                    try {
+                        const newPayment = new Payment({
+                            bookingId: event.data.bookingId,
+                            amount: event.data.totalFare,
+                        });
+
+                        await newPayment.save();
+                    } catch (error){
+                        console.log(error);
+                    }
                 }
                 channel.ack(msg);
 

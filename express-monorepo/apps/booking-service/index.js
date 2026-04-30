@@ -1,8 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import bookingRoute from "./routes/booking.route.js";
-
+import bookingRoutes from "./routes/bookingRoutes.js";
 
 
 dotenv.config();
@@ -14,7 +13,8 @@ const port = process.env.PORT || 3000;
 const mongoUri = process.env.MONGO_URI;
 
 
-app.use('/api/booking',bookingRoute);
+
+app.use('/api/booking',bookingRoutes);
 
 mongoose.connect(mongoUri).then(() => {
     console.log('MongoDB Connected');

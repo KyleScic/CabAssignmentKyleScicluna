@@ -1,4 +1,5 @@
 import userModel from "../models/userModel.js";
+import Notification from '../models/notificationModel.js';
 
 export const createUser = async(req,res)=>{ //User is created
     try{
@@ -36,3 +37,4 @@ export const loginUser = async (req,res)=>{ //User Logs in
         res.status(400).json({message: "login failed"});
     }
 }
+

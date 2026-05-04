@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import userRouter from './routes/user.routes.js';
+import {listenForDiscounts} from "./listeners/discountListener.js";
 
 dotenv.config();
 
@@ -16,8 +17,9 @@ app.use('/api/users',userRouter);
 
 mongoose.connect(mongoUri).then(() => {
     console.log('MongoDB Connected');
-    app.listen(port, () => {
+    app.listen(port, async () => {
         console.log(`Server started on port ${port}`);
+        await listenForDiscounts();
     });
 }).catch((err) => {
     console.error('MongoDB Connection Error:', err);

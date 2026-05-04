@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import locationRoutes from "./routes/location.routes.js";
 
 
 
@@ -13,7 +14,7 @@ const port = process.env.PORT || 3000;
 const mongoUri = process.env.MONGO_URI;
 
 
-
+app.use('/api/location',locationRoutes);
 
 
 mongoose.connect(mongoUri).then(() => {

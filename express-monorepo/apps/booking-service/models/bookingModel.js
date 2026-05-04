@@ -2,6 +2,12 @@ import mongoose from 'mongoose';
 
 const bookingSchema = new mongoose.Schema(
     {
+        email: {
+            type: String,
+            required: true,
+            trim: true,
+            lowercase: true
+        },
         startingLocation: {
             type: String,
             required: true,
@@ -30,6 +36,11 @@ const bookingSchema = new mongoose.Schema(
             required: true,
             enum: ['Economic', 'Premium', 'Executive'],
         },
+        status: {
+            type: String,
+            enum: ['pending', 'completed', 'cancelled'],
+            default: 'pending'
+        }
     },
     { timestamps: true }
 );

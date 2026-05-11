@@ -4,7 +4,7 @@ import Notification from '../models/notificationModel.js';
 
 export const listenForDiscounts = async () => {
     try {
-        const connection = await amqp.connect('amqp://localhost');
+        const connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
         const channel = await connection.createChannel();
 
         const queueName = 'discount_events';
@@ -20,15 +20,21 @@ export const listenForDiscounts = async () => {
                     const { email } = event.data;
 
                     try {
-                        const user = await User.findOne({ email: email });
 
+                        const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
 
-                        if (user && !user.discountAwarded) {
+                        if (!user) {
+
+                            console.log(`[!] Ignored: User ${email} not found in Customer Database.`);
+                        } else if (user.discountAwarded) {
+
+                            console.log(`[-] Ignored: User ${email} already received their discount.`);
+                        } else {
 
                             const notification = new Notification({
                                 userId: user._id,
                                 title: "Congratulations!",
-                                message: "You've completed 3 bookings! Enjoy a 10% discount on your next ride.",
+                                message: "You've completed a booking! Enjoy a 10% discount on your next ride.",
                                 isRead: false
                             });
                             await notification.save();
@@ -37,19 +43,16 @@ export const listenForDiscounts = async () => {
                             user.discountAwarded = true;
                             await user.save();
 
-                            console.log(`[x] Processed discount for user: ${email}`);
-                        } else {
-                            console.log(`[x] Ignored discount event. User ${email} already awarded or not found.`);
+                            console.log(`[✔] SUCCESS: Processed discount for user: ${user.email}`);
                         }
 
 
                         channel.ack(msg);
                     } catch (dbError) {
                         console.error("Database error processing discount:", dbError);
-
+                        channel.ack(msg);
                     }
                 } else {
-
                     channel.ack(msg);
                 }
             }

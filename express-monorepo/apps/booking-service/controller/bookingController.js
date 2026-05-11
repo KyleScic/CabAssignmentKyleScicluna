@@ -18,18 +18,18 @@ const emitEvent = async (queueName, eventType, data) => {
 };
 
 
+
 export const createBooking = async (req, res) => {
-    const { startingLocation, endingLocation, date, time, passengers, cabType } = req.body;
+    const { email, userId, startingLocation, endingLocation, date, time, passengers, cabType } = req.body;
+
+    if (!startingLocation || !endingLocation || !date || !time || !passengers || !cabType) {
+        return res.status(400).json({ message: "Please provide all required fields" });
+    }
 
     try {
-        if (!startingLocation || !endingLocation || !date || !time || !passengers || !cabType) {
-            return res.status(400).json({ message: "Please provide all required fields" });
-        }
-
-        const userId = req.body.userId || "user_123";
-
-        const newCreatedBooking = new bookingModel({
+        const newBooking = new bookingModel({
             email,
+            userId: userId || "user_123",
             startingLocation,
             endingLocation,
             date,
@@ -39,13 +39,36 @@ export const createBooking = async (req, res) => {
             status: 'pending'
         });
 
-        await newCreatedBooking.save();
+        const savedBooking = await newBooking.save();
 
 
-        await emitEvent('booking_events', 'BOOKING_CREATED', newCreatedBooking);
+        try {
+            const connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
+            const channel = await connection.createChannel();
+            const queue = 'discount_events';
 
-        res.status(201).json({ message: "Booking received and is processing", booking: newCreatedBooking });
+            await channel.assertQueue(queue, { durable: true });
+
+
+            const eventPayload = {
+                eventType: 'DISCOUNT_ELIGIBLE',
+                data: {
+                    email: email
+                }
+            };
+
+            channel.sendToQueue(queue, Buffer.from(JSON.stringify(eventPayload)));
+            console.log(`[x] Published Event: DISCOUNT_ELIGIBLE for ${email}`);
+
+            setTimeout(() => { connection.close(); }, 500);
+        } catch (mqError) {
+            console.error("RabbitMQ Publishing Error:", mqError.message);
+        }
+
+        res.status(201).json({ message: "Booking received and is processing", booking: savedBooking });
+
     } catch (error) {
+        console.error("Booking Creation Error:", error);
         res.status(500).json({ message: "Failed to create booking", error: error.message });
     }
 };
@@ -94,7 +117,7 @@ export const completeBooking = async (req, res) => {
 
 
         if (completedCount === 3) {
-            await emitEvent('discount_events', 'DISCOUNT_ELIGIBLE', { userId: booking.userId });
+            await emitEvent('discount_events', 'DISCOUNT_ELIGIBLE', { email: savedBooking.email });
         }
 
         res.status(200).json({ message: "Booking completed successfully", booking });
